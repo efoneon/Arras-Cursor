@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Arras.io Mod Panel
 // @namespace    https://github.com/efoneon/arras-mod-panel
-// @version      2.0.3
+// @version      2.0.4
 // @description  Mod panel for arras.io with a customizable cursor reticle and auto-hold right-click for tank secondary abilities. Press \ to open the menu.
 // @homepageURL  https://github.com/efoneon/Arras-Mod-Panel
 // @supportURL   https://github.com/efoneon/Arras-Mod-Panel/issues
@@ -265,9 +265,7 @@
         })
       )
     }
-    target.dispatchEvent(
-      new MouseEvent(down ? 'mousedown' : 'mouseup', common)
-    )
+    target.dispatchEvent(new MouseEvent(down ? 'mousedown' : 'mouseup', common))
   }
 
   const holdSecondary = () => {
@@ -342,7 +340,8 @@
     margin:6px -4px 4px;padding:8px 8px;border-radius:6px;
     background:rgba(255,255,255,0.04);cursor:pointer;
   `
-  const caretStyle = 'opacity:0.8;font-size:18px;line-height:1;'
+  const caretStyle =
+    'opacity:0.8;font-size:18px;line-height:1;display:inline-block;transition:transform 0.2s ease;'
   const inputBaseStyle =
     'background:#1c1f26;color:#fff;border:1px solid #333;border-radius:6px;padding:4px 6px;'
 
@@ -354,7 +353,7 @@
 
     <div class="arras-mod-section-header" data-section="cursor" style="${sectionHeaderStyle}">
       <strong style="font-size:12px;pointer-events:none;">Cursor</strong>
-      <span data-caret="cursor" style="${caretStyle}pointer-events:none;">▾</span>
+      <span data-caret="cursor" style="${caretStyle}pointer-events:none;">▸</span>
     </div>
     <div data-section-body="cursor">
       <label style="display:flex;align-items:center;gap:8px;margin:6px 0;">
@@ -389,7 +388,7 @@
 
     <div class="arras-mod-section-header" data-section="autoSecondary" style="${sectionHeaderStyle}">
       <strong style="font-size:12px;pointer-events:none;">Auto Secondary Fire</strong>
-      <span data-caret="autoSecondary" style="${caretStyle}pointer-events:none;">▾</span>
+      <span data-caret="autoSecondary" style="${caretStyle}pointer-events:none;">▸</span>
     </div>
     <div data-section-body="autoSecondary">
       <label style="display:flex;align-items:center;gap:8px;margin:6px 0;">
@@ -436,7 +435,8 @@
       const body = menu.querySelector(`[data-section-body="${sec}"]`)
       const caret = menu.querySelector(`[data-caret="${sec}"]`)
       if (body) body.style.display = open ? 'block' : 'none'
-      if (caret) caret.textContent = open ? '▾' : '▸'
+      // Caret is always '▸'; rotate it 90° when open for a smooth turn.
+      if (caret) caret.style.transform = open ? 'rotate(90deg)' : 'rotate(0deg)'
     }
   }
 
