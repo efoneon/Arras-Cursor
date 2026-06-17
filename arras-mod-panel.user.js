@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Arras.io Mod Panel
 // @namespace    https://github.com/efoneon/arras-mod-panel
-// @version      2.1.0
+// @version      2.1.1-debug
 // @description  Mod panel for arras.io with a customizable cursor reticle and auto-hold right-click for tank secondary abilities. Press \ to open the menu.
 // @homepageURL  https://github.com/efoneon/Arras-Mod-Panel
 // @supportURL   https://github.com/efoneon/Arras-Mod-Panel/issues
@@ -140,6 +140,7 @@
     const next = detectPlaying()
     if (next !== isPlaying) {
       isPlaying = next
+      dbg('isPlaying ->', isPlaying)
       document.documentElement.classList.toggle('arras-mod-playing', isPlaying)
       renderDot()
       updateAutoSecondary()
@@ -246,28 +247,60 @@
   const CONTROL_OPCODE = 0x43 // 'C'
   const RIGHT_MOUSE_BIT = 0x40
 
+  // TEMP DIAGNOSTIC: set to true (or run `window.__arrasModDebug = true` in the
+  // console) to log outgoing WebSocket packets and hook state. Used to discover
+  // the real control-packet format on the live build. Remove once confirmed.
+  const DEBUG = true
+  const dbg = (...a) => {
+    if (DEBUG || window.__arrasModDebug) console.log('[arras-mod]', ...a)
+  }
+
   const shouldHoldSecondary = () => settings.autoSecondary.enabled && isPlaying
+
+  const toU8 = data => {
+    if (data instanceof ArrayBuffer) return new Uint8Array(data)
+    if (ArrayBuffer.isView(data))
+      return new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
+    return null
+  }
+
+  // Sample a handful of outgoing packets so we can see what arras actually
+  // sends (opcode = first byte, length, first bytes). Logs the first few of
+  // each distinct opcode, then goes quiet to avoid spamming.
+  const seenOpcodes = {}
+  const sampleOutgoing = u8 => {
+    if (!u8 || !u8.length) return
+    const op = u8[0]
+    seenOpcodes[op] = (seenOpcodes[op] || 0) + 1
+    if (seenOpcodes[op] <= 3) {
+      dbg(
+        `send opcode=${op} (0x${op.toString(16)} '${String.fromCharCode(op)}') len=${u8.length} bytes=[${Array.from(
+          u8.slice(0, 8)
+        ).join(',')}${u8.length > 8 ? ',…' : ''}] holding=${shouldHoldSecondary()}`
+      )
+    }
+  }
 
   const realWsSend = window.WebSocket.prototype.send
   window.WebSocket.prototype.send = function (data) {
     try {
-      if (shouldHoldSecondary() && data) {
-        let u8 = null
-        if (data instanceof ArrayBuffer) u8 = new Uint8Array(data)
-        else if (ArrayBuffer.isView(data))
-          u8 = new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
+      const u8 = toU8(data)
+      if (DEBUG || window.__arrasModDebug) sampleOutgoing(u8)
+      if (shouldHoldSecondary() && u8) {
         // Control packet: first byte 'C'. Flags are the trailing byte (the
         // facing coords can widen the packet, so target the last byte, not a
         // fixed offset). OR in the right-mouse bit.
-        if (u8 && u8.length >= 2 && u8[0] === CONTROL_OPCODE) {
+        if (u8.length >= 2 && u8[0] === CONTROL_OPCODE) {
           u8[u8.length - 1] |= RIGHT_MOUSE_BIT
         }
       }
-    } catch {
+    } catch (err) {
       // Never let our hook break the game's networking.
+      dbg('hook error', err)
     }
     return realWsSend.call(this, data)
   }
+  dbg('WebSocket.send hook installed')
 
   // Kept because the rest of the script calls it on play-state/setting changes.
   // With the WebSocket hook the effect is applied per outgoing packet, so there
